@@ -354,9 +354,179 @@
     .wheel-wrapper { width: 280px; height: 280px; }
     .btn-spin { padding: 12px 36px; font-size: 1.1rem; }
   }
+
+  /* ─── Gate / 门禁 ───────────────────────── */
+  .gate-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 10000;
+    display: flex;
+    pointer-events: all;
+  }
+  .gate-overlay.unlocking {
+    pointer-events: none;
+  }
+  .gate-door {
+    width: 50%;
+    height: 100%;
+    background: #0d0d1a;
+    transition: transform 1.2s cubic-bezier(0.7, 0, 0.3, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .gate-door::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 3px solid rgba(245,197,24,0.15);
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 40px,
+      rgba(245,197,24,0.03) 40px,
+      rgba(245,197,24,0.03) 42px
+    );
+  }
+  .gate-door.left {
+    border-right: 4px solid var(--gold);
+    box-shadow: inset -10px 0 60px rgba(0,0,0,0.5);
+  }
+  .gate-door.right {
+    border-left: 4px solid var(--gold);
+    box-shadow: inset 10px 0 60px rgba(0,0,0,0.5);
+  }
+  .gate-unlocking .gate-door.left {
+    transform: translateX(-105%);
+  }
+  .gate-unlocking .gate-door.right {
+    transform: translateX(105%);
+  }
+
+  .gate-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10001;
+    text-align: center;
+    pointer-events: all;
+  }
+  .gate-title {
+    font-size: 2.4rem;
+    font-weight: 900;
+    letter-spacing: 4px;
+    background: linear-gradient(180deg, #f5c518 0%, #c8960c 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    margin-bottom: 6px;
+    animation: gateGlow 2s ease-in-out infinite;
+  }
+  @keyframes gateGlow {
+    0%,100% { filter: brightness(1); }
+    50% { filter: brightness(1.4); }
+  }
+  .gate-subtitle {
+    font-size: 0.85rem;
+    color: #666;
+    letter-spacing: 2px;
+    margin-bottom: 28px;
+  }
+  .gate-password-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+  }
+  .gate-password-row input {
+    width: 180px;
+    padding: 12px 18px;
+    border-radius: 999px;
+    border: 2px solid rgba(245,197,24,0.3);
+    background: rgba(0,0,0,0.5);
+    color: #f5c518;
+    font-size: 1.1rem;
+    text-align: center;
+    letter-spacing: 4px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .gate-password-row input:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 20px rgba(245,197,24,0.2);
+  }
+  .gate-password-row input.wrong {
+    animation: shake 0.5s ease;
+    border-color: #e94560;
+    box-shadow: 0 0 20px rgba(233,69,96,0.4);
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(4px); }
+  }
+  .gate-btn {
+    padding: 12px 24px;
+    border-radius: 999px;
+    border: 2px solid var(--gold);
+    background: transparent;
+    color: var(--gold);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 2px;
+    font-family: inherit;
+    transition: all 0.3s;
+  }
+  .gate-btn:hover {
+    background: var(--gold);
+    color: #0d0d1a;
+    box-shadow: 0 0 30px rgba(245,197,24,0.3);
+  }
+  .gate-hint {
+    font-size: 0.7rem;
+    color: #444;
+    margin-top: 16px;
+    letter-spacing: 1px;
+  }
+  .gate-spark {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: var(--gold);
+    border-radius: 50%;
+    pointer-events: none;
+    animation: sparkFloat 2s ease-out forwards;
+  }
+  @keyframes sparkFloat {
+    0% { opacity: 1; transform: translate(0,0) scale(1); }
+    100% { opacity: 0; transform: translate(var(--sx), var(--sy)) scale(0); }
+  }
 </style>
 </head>
 <body>
+
+<!-- ─── Gate / 门禁 ───────────────────────────── -->
+<div class="gate-overlay" id="gateOverlay">
+  <div class="gate-door left"></div>
+  <div class="gate-door right"></div>
+  <div class="gate-center" id="gateCenter">
+    <div class="gate-title">芝 麻 开 门</div>
+    <div class="gate-subtitle">— 请输入口令 —</div>
+    <div class="gate-password-row">
+      <input type="password" id="gatePassword" placeholder="••••" maxlength="20" autofocus>
+      <button class="gate-btn" id="gateBtn">开 门</button>
+    </div>
+    <div class="gate-hint">🔑 输入正确口令即可进入转盘</div>
+  </div>
+</div>
 
 <div class="container">
   <div class="header">
@@ -439,6 +609,76 @@
 
 <script>
 (function() {
+  // ─── Gate / 门禁 ─────────────────────────────
+  const GATE_PASSWORD = 'mj';
+  const gateOverlay = document.getElementById('gateOverlay');
+  const gateCenter = document.getElementById('gateCenter');
+  const gatePassword = document.getElementById('gatePassword');
+  const gateBtn = document.getElementById('gateBtn');
+  let gateUnlocked = false;
+
+  function tryUnlock() {
+    if (gateUnlocked) return;
+    const input = gatePassword.value.trim();
+    if (input === GATE_PASSWORD) {
+      unlockGate();
+    } else {
+      shakeGate();
+    }
+  }
+
+  function unlockGate() {
+    gateUnlocked = true;
+    gatePassword.classList.remove('wrong');
+    gatePassword.disabled = true;
+    gateBtn.disabled = true;
+
+    // Spawn sparks
+    spawnGateSparks();
+
+    // Open doors
+    gateOverlay.classList.add('gate-unlocking');
+
+    // Remove gate after animation
+    setTimeout(() => {
+      gateOverlay.style.display = 'none';
+      // Focus the first name in textarea for convenience
+      document.getElementById('nameInput').focus();
+    }, 1300);
+  }
+
+  function shakeGate() {
+    gatePassword.classList.add('wrong');
+    gatePassword.value = '';
+    gatePassword.focus();
+    setTimeout(() => gatePassword.classList.remove('wrong'), 500);
+  }
+
+  function spawnGateSparks() {
+    const rect = gateCenter.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    for (let i = 0; i < 40; i++) {
+      const spark = document.createElement('div');
+      spark.className = 'gate-spark';
+      spark.style.left = cx + 'px';
+      spark.style.top = cy + 'px';
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 80 + Math.random() * 200;
+      spark.style.setProperty('--sx', Math.cos(angle) * dist + 'px');
+      spark.style.setProperty('--sy', Math.sin(angle) * dist + 'px');
+      spark.style.animationDuration = (1 + Math.random() * 1.5) + 's';
+      spark.style.animationDelay = Math.random() * 0.3 + 's';
+      document.body.appendChild(spark);
+      setTimeout(() => spark.remove(), 2500);
+    }
+  }
+
+  gateBtn.addEventListener('click', tryUnlock);
+  gatePassword.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') tryUnlock();
+  });
+
   // ─── DOM refs ────────────────────────────────
   const canvas = document.getElementById('wheelCanvas');
   const ctx = canvas.getContext('2d');
