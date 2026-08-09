@@ -171,6 +171,65 @@
     margin-top: 6px;
   }
 
+  /* Roster DB */
+  .roster-db {
+    width: 100%;
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .roster-db h3 {
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .roster-db .db-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .roster-db select {
+    flex: 1;
+    min-width: 140px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.9rem;
+    font-family: inherit;
+  }
+  .roster-db select:focus { outline: none; border-color: var(--accent); }
+  .roster-db .divider {
+    width: 100%;
+    height: 1px;
+    background: rgba(255,255,255,0.06);
+    margin: 2px 0 10px;
+  }
+  .roster-db .save-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .roster-db .save-row input {
+    flex: 1;
+    min-width: 100px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.9rem;
+    font-family: inherit;
+  }
+  .roster-db .save-row input:focus { outline: none; border-color: var(--accent); }
+
   /* Buttons */
   .btn-row {
     display: flex;
@@ -329,6 +388,23 @@
     <div class="names-hint">💡 每行一个名字，支持中英文、emoji，逗号分隔也可</div>
   </div>
 
+  <!-- Roster Database -->
+  <div class="roster-db">
+    <h3>🗂️ 名单库（数据存于浏览器）</h3>
+    <div class="db-row">
+      <select id="rosterSelect">
+        <option value="">-- 选择已保存的名单 --</option>
+      </select>
+      <button class="btn btn-outline btn-sm" id="btnLoadRoster">📥 加载</button>
+      <button class="btn btn-outline btn-sm" id="btnDeleteRoster">🗑️ 删除</button>
+    </div>
+    <div class="divider"></div>
+    <div class="save-row">
+      <input type="text" id="rosterNameInput" placeholder="输入名单名称，如「班级同学」">
+      <button class="btn btn-outline btn-sm" id="btnSaveRoster">💾 保存当前名单</button>
+    </div>
+  </div>
+
   <!-- Buttons -->
   <div class="btn-row">
     <button class="btn btn-spin" id="btnSpin">🎯 开始抽签</button>
@@ -369,6 +445,11 @@
   const btnShare = document.getElementById('btnShare');
   const btnClearHistory = document.getElementById('btnClearHistory');
   const nameCountBadge = document.getElementById('nameCountBadge');
+  const rosterSelect = document.getElementById('rosterSelect');
+  const btnLoadRoster = document.getElementById('btnLoadRoster');
+  const btnDeleteRoster = document.getElementById('btnDeleteRoster');
+  const rosterNameInput = document.getElementById('rosterNameInput');
+  const btnSaveRoster = document.getElementById('btnSaveRoster');
   const resultsDiv = document.getElementById('results');
   const historyList = document.getElementById('historyList');
   const confettiCanvas = document.getElementById('confetti');
@@ -730,6 +811,65 @@
     showToast('✅ 抽取记录已清空');
   }
 
+  // ─── Roster DB (localStorage) ────────────────
+  const STORAGE_KEY = 'wheel_roster_db';
+
+  function getRosterDB() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    } catch(e) { return {}; }
+  }
+
+  function saveRosterDB(db) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  }
+
+  function refreshRosterSelect() {
+    const db = getRosterDB();
+    const keys = Object.keys(db).sort();
+    rosterSelect.innerHTML = '<option value="">-- 选择已保存的名单 --</option>';
+    keys.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name + ' (' + db[name].length + ' 人)';
+      rosterSelect.appendChild(opt);
+    });
+  }
+
+  function saveRoster() {
+    const name = rosterNameInput.value.trim();
+    if (!name) { showToast('⚠️ 请输入名单名称'); return; }
+    if (names.length === 0) { showToast('⚠️ 当前名单为空，无法保存'); return; }
+    const db = getRosterDB();
+    db[name] = [...names];  // copy current names
+    saveRosterDB(db);
+    rosterNameInput.value = '';
+    refreshRosterSelect();
+    showToast('✅ 名单「' + name + '」已保存（' + names.length + ' 人）');
+  }
+
+  function loadRoster() {
+    const name = rosterSelect.value;
+    if (!name) { showToast('⚠️ 请先选择一个名单'); return; }
+    const db = getRosterDB();
+    if (!db[name]) { showToast('⚠️ 名单不存在'); return; }
+    nameInput.value = db[name].join('\n');
+    parseNames();
+    showToast('📥 已加载名单「' + name + '」（' + names.length + ' 人）');
+  }
+
+  function deleteRoster() {
+    const name = rosterSelect.value;
+    if (!name) { showToast('⚠️ 请先选择一个名单'); return; }
+    if (!confirm('确定删除名单「' + name + '」？此操作不可恢复。')) return;
+    const db = getRosterDB();
+    delete db[name];
+    saveRosterDB(db);
+    refreshRosterSelect();
+    rosterNameInput.value = name;
+    showToast('🗑️ 名单「' + name + '」已删除');
+  }
+
   // ─── Share ───────────────────────────────────
   function share() {
     const url = window.location.href;
@@ -778,6 +918,9 @@
   btnClear.addEventListener('click', clearResults);
   btnClearHistory.addEventListener('click', clearHistory);
   btnShare.addEventListener('click', share);
+  btnSaveRoster.addEventListener('click', saveRoster);
+  btnLoadRoster.addEventListener('click', loadRoster);
+  btnDeleteRoster.addEventListener('click', deleteRoster);
 
   // Keyboard shortcut
   document.addEventListener('keydown', (e) => {
@@ -793,6 +936,7 @@
     confettiCanvas.height = window.innerHeight;
     parseNames();
     renderHistory();
+    refreshRosterSelect();
   }
 
   window.addEventListener('resize', () => {
