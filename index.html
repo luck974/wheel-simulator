@@ -403,6 +403,12 @@
       <input type="text" id="rosterNameInput" placeholder="输入名单名称，如「班级同学」">
       <button class="btn btn-outline btn-sm" id="btnSaveRoster">💾 保存当前名单</button>
     </div>
+    <div class="divider"></div>
+    <div class="save-row">
+      <button class="btn btn-outline btn-sm" id="btnExportDB" style="flex:1;">📤 导出名单库</button>
+      <button class="btn btn-outline btn-sm" id="btnImportDB" style="flex:1;">📥 导入名单库</button>
+    </div>
+    <input type="file" id="importFileInput" accept=".json" style="display:none;">
   </div>
 
   <!-- Buttons -->
@@ -450,6 +456,9 @@
   const btnDeleteRoster = document.getElementById('btnDeleteRoster');
   const rosterNameInput = document.getElementById('rosterNameInput');
   const btnSaveRoster = document.getElementById('btnSaveRoster');
+  const btnExportDB = document.getElementById('btnExportDB');
+  const btnImportDB = document.getElementById('btnImportDB');
+  const importFileInput = document.getElementById('importFileInput');
   const resultsDiv = document.getElementById('results');
   const historyList = document.getElementById('historyList');
   const confettiCanvas = document.getElementById('confetti');
@@ -870,20 +879,84 @@
     showToast('🗑️ 名单「' + name + '」已删除');
   }
 
+  function exportDB() {
+    const db = getRosterDB();
+    if (Object.keys(db).length === 0) { showToast('⚠️ 名单库为空'); return; }
+    const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '转盘名单库_' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+    showToast('📤 名单库已导出');
+  }
+
+  function importDB() {
+    document.getElementById('importFileInput').click();
+  }
+
+  function handleImportFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        const imported = JSON.parse(ev.target.result);
+        if (typeof imported !== 'object' || Array.isArray(imported)) throw new Error();
+        // Validate structure: { name: [strings] }
+        for (const [key, val] of Object.entries(imported)) {
+          if (!Array.isArray(val) || !val.every(v => typeof v === 'string')) throw new Error();
+        }
+        const existing = getRosterDB();
+        const merged = { ...existing, ...imported };
+        const newCount = Object.keys(merged).length - Object.keys(existing).length;
+        saveRosterDB(merged);
+        refreshRosterSelect();
+        showToast('📥 导入了 ' + Object.keys(imported).length + ' 组名单' + (newCount > 0 ? '（新增 ' + newCount + ' 组）' : '（已合并）'));
+      } catch(err) {
+        showToast('⚠️ 文件格式不正确');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
   // ─── Share ───────────────────────────────────
   function share() {
-    const url = window.location.href;
-    const text = `🎡 转盘抽签模拟器\n当前名单：${names.length} 人`;
+    const baseUrl = window.location.origin + window.location.pathname;
+    let url = baseUrl;
+    // Encode current names into URL hash so receiver gets them too
+    if (names.length > 0) {
+      const encoded = btoa(unescape(encodeURIComponent(names.join('\n'))));
+      url = baseUrl + '#n=' + encoded;
+    }
+    const text = `🎡 转盘抽签模拟器` + (names.length > 0 ? `\n名单：${names.length} 人` : '');
 
     if (navigator.share) {
       navigator.share({ title: '转盘抽签模拟器', text, url }).catch(() => {});
     } else {
       navigator.clipboard.writeText(url).then(() => {
-        showToast('✅ 链接已复制到剪贴板！');
+        showToast('✅ 链接已复制（含' + names.length + '人名单）');
       }).catch(() => {
-        prompt('复制此链接分享：', url);
+        prompt('复制此链接分享（含名单数据）：', url);
       });
     }
+  }
+
+  // Load names from URL hash on page load
+  function loadFromHash() {
+    const hash = window.location.hash;
+    if (!hash || !hash.startsWith('#n=')) return;
+    try {
+      const decoded = decodeURIComponent(escape(atob(hash.slice(3))));
+      const hashNames = decoded.split('\n').map(s => s.trim()).filter(Boolean);
+      if (hashNames.length > 0) {
+        nameInput.value = hashNames.join('\n');
+        parseNames();
+        showToast('📎 已从链接加载名单（' + hashNames.length + ' 人）');
+        // Clean URL after loading
+        history.replaceState(null, '', window.location.pathname);
+      }
+    } catch(e) { /* invalid hash, ignore */ }
   }
 
   function showToast(msg) {
@@ -921,6 +994,9 @@
   btnSaveRoster.addEventListener('click', saveRoster);
   btnLoadRoster.addEventListener('click', loadRoster);
   btnDeleteRoster.addEventListener('click', deleteRoster);
+  btnExportDB.addEventListener('click', exportDB);
+  btnImportDB.addEventListener('click', importDB);
+  importFileInput.addEventListener('change', handleImportFile);
 
   // Keyboard shortcut
   document.addEventListener('keydown', (e) => {
@@ -934,9 +1010,13 @@
   function init() {
     confettiCanvas.width = window.innerWidth;
     confettiCanvas.height = window.innerHeight;
-    parseNames();
-    renderHistory();
     refreshRosterSelect();
+    loadFromHash();  // check URL hash for shared names
+    // Only parse textarea if no hash was loaded (to not overwrite)
+    if (!window.location.hash.startsWith('#n=')) {
+      parseNames();
+    }
+    renderHistory();
   }
 
   window.addEventListener('resize', () => {
